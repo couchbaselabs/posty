@@ -7,6 +7,8 @@ import com.couchbase.client.core.deps.com.fasterxml.jackson.core.JsonFactory;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.core.JsonParser;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.JsonNode;
 import com.couchbase.client.core.deps.com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -19,11 +21,23 @@ import static org.springframework.web.bind.annotation.RequestMethod.POST;
 class TransactionController {
 
     private final Transactor transactor;
+    private TransactorConfiguration transactorConfiguration;
 
-    TransactionController() {
-        this.transactor = new Transactor();
+
+    private String connectionString;
+    private String username;
+    private String password;
+
+    @Autowired
+    TransactionController(@Value("${AWS_NODES}") String connectionString,
+                          @Value("${USERNAME}") String username,
+                          @Value("${PASSWORD}") String password) {
+        transactorConfiguration = new TransactorConfiguration(connectionString, username, password);
+        transactorConfiguration.printVars();
+        this.transactor = new Transactor(connectionString,
+                                         username,
+                                         password);
     }
-
 
     @RequestMapping(value="/submitorder", method=POST, consumes= APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.OK)

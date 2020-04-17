@@ -11,14 +11,20 @@ import com.couchbase.transactions.Transactions;
 import com.couchbase.transactions.config.TransactionConfigBuilder;
 import com.couchbase.transactions.error.TransactionFailed;
 import acidrpc.InsufficientStockException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
+import javax.security.auth.login.Configuration;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Map;
 
 
-class ProductNotFound extends RuntimeException {}
+class ProductNotFound extends RuntimeException {
+}
 
+@Component
 public class Transactor {
 
     private Cluster cluster;
@@ -29,9 +35,16 @@ public class Transactor {
     private ArrayList<JsonObject> inserts;
     private ArrayList<JsonObject> upserts;
 
-    public Transactor() {
+    public Transactor(String connectionString, String username, String password) {
         // Initialize the Couchbase cluster
-        cluster = Cluster.connect("192.168.33.10", "Administrator", "password");
+        //cluster = Cluster.connect("192.168.33.10", "Administrator", "password");
+
+        System.out.println("\n\n\nConnection String: " + connectionString);
+        System.out.println("Username: " + username);
+        System.out.println("Password: " + password + "\n\n\n");
+
+
+        cluster = Cluster.connect(connectionString, username, password);
         bucket = cluster.bucket("couchmart");
         collection = bucket.defaultCollection();
 
@@ -60,7 +73,7 @@ public class Transactor {
     public void commitQueuedTransactions() {
         try {
             transactions.run((ctx) -> {
-                for(JsonObject insertObject: this.inserts) {
+                for (JsonObject insertObject : this.inserts) {
                     ctx.insert(collection, "thing", insertObject);
                 }
             });
@@ -87,7 +100,7 @@ public class Transactor {
                         //TransactionGetResult productDocument = ctx.get(collection, productOrderedId);
                         JsonObject productContent = productDocument.contentAsObject();
                         int stockLevel = productContent.getInt("stock");
-                        if(stockLevel < 1) {
+                        if (stockLevel < 1) {
                             throw new InsufficientStockException("There is not enough stock of: " + productOrderedId);
                         }
                         //decrement the stock levels
@@ -104,7 +117,7 @@ public class Transactor {
                 for (Iterator<Map.Entry<String, JsonNode>> it = orderJson.fields(); it.hasNext(); ) {
                     Map.Entry<String, JsonNode> entry = it.next();
                     String keyName = entry.getKey();
-                    if(keyName.contains("Order::")) {
+                    if (keyName.contains("Order::")) {
                         id = keyName;
                         break;
                     }
@@ -137,7 +150,7 @@ public class Transactor {
                 // This call is optional - if you leave it off, the transaction
                 // will be committed anyway.
                 ctx.commit();
-                });
+            });
         } catch (TransactionFailed err) {
 
             if (err.getCause() instanceof InsufficientStockException) {
@@ -148,8 +161,7 @@ public class Transactor {
                 System.err.println("Transaction " + err.result().transactionId() + " failed: ");
                 err.result().log().logs().forEach(System.err::println);
                 throw (RuntimeException) err.getCause(); // propagate up
-            }
-            else {
+            } else {
                 // Unexpected error - log for human review
                 // This per-txn log allows the app to only log failures
                 System.err.println("Transaction " + err.result().transactionId() + " failed:");
@@ -163,9 +175,8 @@ public class Transactor {
     }
 
 
-
     public static void main(String[] args) throws Exception {
-        Transactor transactor = new Transactor();
+        //Transactor transactor = new Transactor();
         //transactor.transact();
     }
 
